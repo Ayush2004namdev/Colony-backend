@@ -1,29 +1,16 @@
 const userModel = require("../models/user");
-const passport = require("passport");
-const localStrategy = require("passport-local").Strategy;
 const { catchAsyncError } = require("../middlewares/catchAsyncErrors");
 const { sendToken } = require("../utils/sendToken");
+const ErrorHandler = require("../utils/errorHandler");
+const { sendEmail } = require("../utils/mailer");
 
-passport.use(new localStrategy(userModel.authenticate()));
-
-const registerController = catchAsyncError((req, res, next) => {
-  var newUser = new userModel({
-    username: req.body.username,
-    email: req.body.email,
-  });
-  userModel
-    .register(newUser, req.body.password)
-    .then(() => {
-      passport.authenticate("local")(req, res, () => {
-        sendToken(req.user, 200, res);
-      });
-    })
-    .catch((err) => {
-      return next(err);
-    });
+const registerController = catchAsyncError(async (req, res, next) => {
+  const newUser = await userModel.create(req.body);
+  sendToken(newUser, 201, res);
 });
 
 const loginController = catchAsyncError(async (req, res, next) => {
+<<<<<<< HEAD
   console.log(req);
   passport.authenticate("local", (err, user, info) => {
     if (err) {
@@ -39,16 +26,48 @@ const loginController = catchAsyncError(async (req, res, next) => {
       sendToken(user, 200, res);
     });
   })(req, res, next);
+=======
+  const user = await userModel
+    .findOne({ username: req.body.username })
+    .select("+password");
+  if (!user) {
+    return next(new ErrorHandler("User Not Found", 404));
+  }
+  const isPasswordMatch = await user.comparePassword(req.body.password);
+  if (!isPasswordMatch) {
+    return next(new ErrorHandler("Invalid email or password", 401));
+  }
+  sendToken(user, 200, res);
+>>>>>>> 0bc5b6a648f148fed7e361d35df54b490406ac59
 });
 
-const logoutUser = catchAsyncError(async (req, res, next) => {
+const logoutController = catchAsyncError(async (req, res, next) => {
   res.clearCookie("token");
   res.json({ message: "logged out" });
 });
 
-module.exports = { registerController, logoutUser, loginController };
 
-// req.logout(function (err) {
-//   if (err) {
-//     return next(err);
-//   }
+const forgetPasswordController = catchAsyncError(async (req, res, next) => {
+  const user = await userModel.findOne({ email: req.body.email });
+  if (!user) {
+    return next(new ErrorHandler("User Not Found", 404));
+  }
+  const url = req.protocol + "://" + req.get("host") + "/user/reset-password/" + user._id;
+
+  sendEmail(user.email, url, next, res);
+
+});
+
+const resetPasswordController = catchAsyncError(async (req, res, next) => {
+  const user = await userModel.findById(req.params.id);
+  if (!user) {
+    return next(new ErrorHandler("User Not Found", 404));
+  }
+  user.password = req.body.password;
+  await user.save();
+  res.status(200).json({
+    message: "Password Updated Successfully",
+  });
+});
+
+module.exports = { registerController, forgetPasswordController, loginController, logoutController, resetPasswordController };
