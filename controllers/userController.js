@@ -24,6 +24,7 @@ const registerController = catchAsyncError((req, res, next) => {
 });
 
 const loginController = catchAsyncError(async (req, res, next) => {
+  console.log(req);
   passport.authenticate("local", (err, user, info) => {
     if (err) {
       return next(err);
