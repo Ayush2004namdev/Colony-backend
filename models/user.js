@@ -62,6 +62,10 @@ const userSchema = new mongoose.Schema(
         "Please enter a valid email",
       ],
     },
+    resetPasswordFlag: {
+      type: Boolean,
+      default: false, 
+    },
   },
   { timestamps: true }
 );
@@ -81,7 +85,7 @@ userSchema.methods.comparePassword = function (enteredPassword) {
 };
 
 userSchema.methods.getjwtToken = function () {
-  return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+  return jwt.sign({ id: this._id, username: this.username }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_TIME,
   });
 };

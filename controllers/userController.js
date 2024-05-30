@@ -46,16 +46,16 @@ const logoutController = catchAsyncError(async (req, res, next) => {
   res.json({ message: "logged out" });
 });
 
-
 const forgetPasswordController = catchAsyncError(async (req, res, next) => {
   const user = await userModel.findOne({ email: req.body.email });
   if (!user) {
     return next(new ErrorHandler("User Not Found", 404));
   }
-  const url = req.protocol + "://" + req.get("host") + "/user/reset-password/v2/" + user._id;
+  const url = `https://colony-zeta.vercel.app/resetpassword/${user._id}`;
 
   sendEmail(user.email, url, next, res);
-
+  user.resetPasswordFlag = !user.resetPasswordFlag;
+  await user.save();
 });
 
 const resetPasswordController = catchAsyncError(async (req, res, next) => {
@@ -63,11 +63,23 @@ const resetPasswordController = catchAsyncError(async (req, res, next) => {
   if (!user) {
     return next(new ErrorHandler("User Not Found", 404));
   }
-  user.password = req.body.password;
-  await user.save();
-  res.status(200).json({
-    message: "Password Updated Successfully",
-  });
+
+  if (user.resetPasswordFlag) {
+    user.password = req.body.password;
+    user.resetPasswordFlag = !user.resetPasswordFlag;
+    await user.save();
+    res.status(200).json({
+      message: "Password Updated Successfully",
+    });
+  } else {
+    return next(new ErrorHandler("Invalid Reset Password Link! Please Try Again", 401));
+  }
 });
 
-module.exports = { registerController, forgetPasswordController, loginController, logoutController, resetPasswordController };
+module.exports = {
+  registerController,
+  forgetPasswordController,
+  loginController,
+  logoutController,
+  resetPasswordController,
+};
